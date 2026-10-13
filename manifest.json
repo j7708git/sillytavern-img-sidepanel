@@ -1,0 +1,15 @@
+{
+    "display_name": "Image Side Panel",
+    "loading_order": 100,
+    "requires": [],
+    "optional": [
+        "sd"
+    ],
+    "js": "index.js",
+    "css": "style.css",
+    "author": "j7708git",
+    "version": "0.2.0",
+    "hooks": {
+        "activate": "init"
+    }
+}

@@ -1,0 +1,25 @@
+<div class="isp_settings">
+    <div class="inline-drawer">
+        <div class="inline-drawer-toggle inline-drawer-header">
+            <b>Image Side Panel</b>
+            <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+        </div>
+        <div class="inline-drawer-content">
+            <label for="isp_profile">LLM Profile</label>
+            <select id="isp_profile" class="text_pole"></select>
+
+            <label for="isp_context_messages">Context message count</label>
+            <input id="isp_context_messages" type="number" min="1" max="10" step="1" class="text_pole" />
+
+            <label for="isp_template_select">Conversion template</label>
+            <div class="isp_template_selector">
+                <select id="isp_template_select" class="text_pole"></select>
+                <button id="isp_template_add" class="menu_button" type="button" title="新增模板">新增模板</button>
+                <button id="isp_template_del" class="menu_button" type="button" title="刪除模板">刪除模板</button>
+            </div>
+
+            <label for="isp_conversion_template">Template editor</label>
+            <textarea id="isp_conversion_template" class="text_pole" rows="6"></textarea>
+        </div>
+    </div>
+</div>

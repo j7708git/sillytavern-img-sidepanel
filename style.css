@@ -1,0 +1,436 @@
+/* ==========================================================================
+   Image Side Panel — shared + floating + docked styles.
+   Both containers reuse the same SmartTheme CSS variables and the shared
+   .isp_* component classes below; only layout differences are scoped to
+   #isp_panel (floating) or #isp_dock (docked strip inside #sheld).
+   ========================================================================== */
+
+/* Toolbar icon buttons (panel toggle + generate). */
+#isp_toggle_btn,
+#isp_gen_btn {
+    cursor: pointer;
+}
+
+/* Flicker fix (root cause): during generation the button's icon becomes
+   fa-spinner fa-spin. A CSS rotation ENLARGES the scrollable-overflow area of
+   ancestors (a 45px square rotated 45deg needs a ~64px bounding box), so
+   #sheld's scrollHeight oscillates 653<->661 px with the spin angle. Because
+   #sheld is overflow-x:hidden + overflow-y:auto (auto is computed from the
+   one-axis-hidden rule), its vertical scrollbar appears/disappears several
+   times per second and the whole chat layout flickers. Clipping the rotating
+   glyph at the nearest flex container (#rightSendForm) stops the overflow from
+   ever reaching #sheld — verified: #sheld overflow flips 23 -> 0. */
+#rightSendForm {
+    overflow: clip;
+}
+
+#isp_toggle_btn.isp_active {
+    opacity: 1;
+    color: var(--SmartThemeQuoteColor);
+}
+
+/* Disable clicks / fade while a generation is running. */
+#isp_gen_btn.isp_busy,
+#isp_refresh_btn.isp_busy,
+#isp_dock_refresh.isp_busy {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+/* --------------------------------------------------------------------------
+   Shared component classes (used by both the floating panel and the dock).
+   -------------------------------------------------------------------------- */
+
+/* Header row: title on the left, action buttons on the right. */
+.isp_header {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    flex: 0 0 auto;
+    border-bottom: 1px solid var(--SmartThemeBorderColor);
+}
+
+.isp_title {
+    font-weight: bold;
+    color: var(--SmartThemeBodyColor);
+}
+
+.isp_header_actions {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Header action buttons (pager/refresh/collapse/pin/unpin/prompt toggle). */
+.isp_header_actions .interactable {
+    cursor: pointer;
+    opacity: 0.7;
+    font-size: 0.9em;
+}
+
+.isp_header_actions .interactable:hover {
+    opacity: 1;
+}
+
+/* Auto-generate toggle 📷: full brightness + accent color while enabled. */
+.isp_header_actions .interactable.isp_auto_on {
+    opacity: 1;
+    color: var(--SmartThemeQuoteColor);
+}
+
+/* Pager position indicator (e.g. "3/12"). */
+.isp_pos {
+    min-width: 3em;
+    text-align: center;
+    font-size: 0.8em;
+    opacity: 0.7;
+    color: var(--SmartThemeBodyColor);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* Disabled pager buttons. Still clickable (toast feedback); just dimmed. */
+.isp_header_actions .interactable.isp_disabled,
+.isp_header_actions .interactable.isp_disabled:hover {
+    opacity: 0.4;
+}
+
+/* Transient status line (hidden by default; shown by JS during generation). */
+.isp_status {
+    display: none;
+    flex: 0 0 auto;
+    padding: 2px 4px;
+    font-size: 0.78em;
+    line-height: 1.35;
+    color: var(--SmartThemeBodyColor);
+    opacity: 0.7;
+    word-break: break-word;
+    white-space: pre-wrap;
+}
+
+.isp_status:empty {
+    display: none;
+}
+
+/* Body wrapper: vertical stack that fills the remaining panel/dock height. */
+.isp_body {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+    overflow: hidden;
+}
+
+/* Empty-state hint text. */
+.isp_placeholder {
+    color: var(--SmartThemeBodyColor);
+    opacity: 0.6;
+    text-align: center;
+    font-size: 0.9em;
+}
+
+/* Image display area (dashed border until an image is shown). */
+.isp_img_wrap {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+    border: 1px dashed var(--SmartThemeBorderColor);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.isp_img_wrap img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+/* Read-only, muted prompt content — shows the FINAL effective prompt (prefix +
+   conversion result, macros resolved), which can be long: wrap at any point so
+   the layout never blows out horizontally. */
+.isp_prompt {
+    flex: 0 0 auto;
+    max-height: 120px;
+    overflow-y: auto;
+    padding: 6px 8px;
+    font-size: 0.78em;
+    line-height: 1.35;
+    color: var(--SmartThemeBodyColor);
+    opacity: 0.65;
+    background: var(--SmartThemeBlurTintColor);
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 6px;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+}
+
+/* Hide the prompt content until there is something to show. */
+.isp_prompt:empty {
+    display: none;
+}
+
+/* --------------------------------------------------------------------------
+   Floating panel (#isp_panel).
+   -------------------------------------------------------------------------- */
+
+/* Floating side panel, anchored to the viewport (document.body child).
+   Position/size are set inline by JS (default or persisted); these are fallbacks. */
+#isp_panel {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 340px;
+    height: 360px;
+    z-index: 30000;
+    display: none;
+    flex-direction: column;
+    box-sizing: border-box;
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 10px;
+    background-color: var(--SmartThemeBlurTintColor);
+    backdrop-filter: blur(var(--SmartThemeBlurStrength));
+    -webkit-backdrop-filter: blur(var(--SmartThemeBlurStrength));
+    box-shadow: 0 0 10px var(--black30a);
+    overflow: hidden;
+}
+
+#isp_panel.isp_open {
+    display: flex;
+}
+
+#isp_panel .isp_header {
+    padding: 8px 10px;
+}
+
+/* Bottom-right resize handle (jQuery UI adds .ui-resizable-se).
+   background-image:none kills the missing theme-sprite 404. The 32x32 box is
+   the grabbable hit area; ::after draws a small visual corner indicator. */
+#isp_panel .ui-resizable-se {
+    width: 32px;
+    height: 32px;
+    right: 0;
+    bottom: 0;
+    z-index: 10; /* stay grabbable above the image area */
+    cursor: nwse-resize;
+    background-image: none;
+}
+
+#isp_panel .ui-resizable-se::after {
+    content: '';
+    position: absolute;
+    right: 4px;
+    bottom: 4px;
+    width: 10px;
+    height: 10px;
+    border-right: 2px solid var(--SmartThemeBorderColor);
+    border-bottom: 2px solid var(--SmartThemeBorderColor);
+    border-bottom-right-radius: 4px;
+    pointer-events: none;
+}
+
+/* Prompt drawer: header row + collapsible content. Default collapsed. */
+#isp_panel .isp_prompt_drawer {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+#isp_panel .isp_prompt_toggle {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    padding: 4px 6px;
+    font-size: 0.8em;
+    color: var(--SmartThemeBodyColor);
+    opacity: 0.8;
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 6px;
+    background: var(--SmartThemeBlurTintColor);
+}
+
+#isp_panel .isp_prompt_toggle:hover {
+    opacity: 1;
+}
+
+#isp_panel .isp_prompt_toggle_label {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    align-items: center;
+    gap: 4px;
+}
+
+#isp_panel .isp_prompt_chevron {
+    display: inline-block;
+    font-size: 0.85em;
+}
+
+#isp_panel #isp_copy_btn {
+    cursor: pointer;
+    opacity: 0.7;
+    font-size: 0.85em;
+    padding: 2px;
+}
+
+#isp_panel #isp_copy_btn:hover {
+    opacity: 1;
+}
+
+/* Collapsed drawer hides only the prompt content; the toggle row stays. */
+#isp_panel .isp_prompt_drawer.isp_collapsed #isp_prompt {
+    display: none;
+}
+
+/* --------------------------------------------------------------------------
+   Docked strip (#isp_dock) — pinned between topbar and #chat inside #sheld.
+   -------------------------------------------------------------------------- */
+
+#isp_dock {
+    display: none;
+    flex-direction: column;
+    flex: 0 0 auto;           /* never grow/shrink; takes its fixed height */
+    width: 100%;
+    box-sizing: border-box;
+    position: relative;       /* required by jQuery UI resizable */
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 10px;
+    background-color: var(--SmartThemeBlurTintColor);
+    backdrop-filter: blur(var(--SmartThemeBlurStrength));
+    -webkit-backdrop-filter: blur(var(--SmartThemeBlurStrength));
+    box-shadow: 0 0 10px var(--black30a);
+    overflow: hidden;
+    margin-bottom: 2px;
+}
+
+#isp_dock.isp_open {
+    display: flex;
+}
+
+/* Slim header row (32px) that packs all controls horizontally. */
+#isp_dock .isp_dock_header {
+    height: 32px;
+    padding: 0 10px;
+    box-sizing: border-box;
+}
+
+/* The dock body fills the strip; min-height:0 lets the image area shrink. */
+#isp_dock .isp_dock_body {
+    min-height: 0;
+}
+
+/* Prompt toggle lives in the dock header (wide layout). */
+#isp_dock_prompt_toggle {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+}
+
+#isp_dock_prompt_toggle .isp_prompt_toggle_label {
+    display: flex;
+    flex: 0 0 auto;
+    min-width: 0;
+    align-items: center;
+    gap: 4px;
+}
+
+#isp_dock_prompt_toggle .isp_prompt_chevron {
+    display: inline-block;
+    font-size: 0.85em;
+}
+
+#isp_dock_copy {
+    cursor: pointer;
+    opacity: 0.7;
+    font-size: 0.85em;
+    padding: 2px;
+}
+
+#isp_dock_copy:hover {
+    opacity: 1;
+}
+
+/* Prompt content in the dock body: collapsed by default, shown when the header
+   toggle adds .isp_dock_prompt_open. */
+#isp_dock #isp_dock_prompt {
+    display: none;
+    max-height: 80px;
+}
+
+#isp_dock.isp_dock_prompt_open #isp_dock_prompt {
+    display: block;
+}
+
+/* Never show an empty prompt box even when the drawer is toggled open. */
+#isp_dock.isp_dock_prompt_open #isp_dock_prompt:empty {
+    display: none;
+}
+
+/* Collapsed dock: only the 32px header remains; the body + splitter hide.
+   Height is set inline by JS (32px), so there is no !important fight with
+   the resizable plugin's inline height. */
+#isp_dock.isp_dock_collapsed .isp_dock_body {
+    display: none;
+}
+
+#isp_dock.isp_dock_collapsed .ui-resizable-s {
+    display: none;
+}
+
+/* Bottom splitter handle (jQuery UI adds .ui-resizable-s). A 6px grabbable
+   zone with a centered grip line; background-image:none kills the 404. */
+#isp_dock .ui-resizable-s {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 6px;
+    z-index: 10; /* stay grabbable above the image area */
+    cursor: ns-resize;
+    background-image: none;
+}
+
+#isp_dock .ui-resizable-s::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 40px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--SmartThemeBorderColor);
+    pointer-events: none;
+}
+
+/* --------------------------------------------------------------------------
+   Settings panel: conversion template selector (dropdown + add/delete).
+   -------------------------------------------------------------------------- */
+
+.isp_template_selector {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+}
+
+.isp_template_selector #isp_template_select {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.isp_template_selector .menu_button {
+    flex: 0 0 auto;
+    padding: 4px 8px;
+    font-size: 0.85em;
+    white-space: nowrap;
+}
