@@ -12,13 +12,13 @@
 - **🪄 面板開關**：工具列魔杖圖示展開/收合側邊面板。
 - **浮動 / 固定兩種模式**：浮動面板可拖曳、縮放、雙擊標題重置位置；也可 📌 釘成嵌在聊天區上方的固定條。
 - **◀ ▶ 歷史換頁**：每個聊天各自保留最近 200 張，可翻頁回看（含當時的提示詞）。
-- **🔄 重新生成**：同提示詞換新隨機 seed 再出一張，原位更新。
+- **🔄 重新生成**：同提示詞換新隨機 seed 再出一張，原位更新（⚡ 與自動生圖則沿用 ST 的 Seed 設定）。
 - **📷 自動生圖**：開啟後每次 AI 回覆完整結束就自動「轉換 + 生成」一張；同一訊息 swipe/編輯不會重複觸發、上一張還在生成就跳過。
 - **最終 prompt 顯示與複製**：面板顯示 ST 實際送進生成器的最終有效提示詞（含 ST 內建前墜合併與變數解析），一鍵複製。
 - **設定面板**（ST 設定 → 擴充功能 → Image Side Panel）：
   - LLM Profile：提示詞轉換用的獨立連線 profile（留空 = 自動選 DeepSeek）
   - Context message count：取最近幾條訊息（1~10，預設 2）
-  - Conversion template：多組轉換模板可下拉切換/新增/刪除/編輯，內建 `Anima`（Danbooru 標籤清單）與 `Krea 2`（英文自然語言描述）兩組
+  - Conversion template：多組轉換模板可下拉切換/新增/刪除/編輯，內建 `Anima`（Danbooru 標籤清單）與 `Krea 2`（英文自然語言描述）兩組。模板文字支援 ST 巨集 `{{user}}`（使用者人設名稱）與 `{{persona}}`（人設描述）——面板只拿得到角色卡與最近訊息，模板是取得使用者人設的唯一來源，送出前會先過 ST 的 `substituteParams()`
 
 ## 安裝
 
@@ -55,7 +55,7 @@
 
 ## 技術筆記（踩過的坑）
 
-- **呼叫格式**：`/imagine quiet=true seed=-1 extend=false <prompt>`（STscript 具名參數在前、位置參數在後）。`quiet=true` 圖不進聊天；`seed=-1` 每次隨機。
+- **呼叫格式**：`/imagine quiet=true seed=<seed> extend=false <prompt>`（STscript 具名參數在前、位置參數在後）。`quiet=true` 圖不進聊天；`seed` 預設沿用 ST 設定面板的 Seed（`extension_settings.sd.seed`）：填 ≥ 0 就鎖定該值，讓同一個角色的臉在不同場景間維持一致；值為 -1 或未設定時才隨機。只有 **🔄 重新生成** 會強制換新隨機 seed（`seed=-1`），⚡ 與自動生圖都沿用 Seed 設定。
 - **`extend=false` 必須帶**：使用者若開了 ST 內建 SD 的 *Free Mode (LLM-Extended)*（`sd.free_extend`），SD 會用**主聊天連線**再擴寫一次 prompt——雙重 LLM、燒主 API 額度且繞過本插件的轉換。故每次呼叫鎖死。
 - **`max_tokens=1000`**：DeepSeek 官方直連的推理模型，`max_tokens` 太小（實測 300）會把額度全花在 chain-of-thought 上，`content` 回空。
 - **歷史儲存**：`extension_settings['img-sidepanel'].history`，以 chatId 分 key，每聊天上限 200 張（超出淘汰最舊）。圖片本體由 ST 存進 User Pictures。

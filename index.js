@@ -275,7 +275,9 @@ async function convertToPrompt(context, signal) {
     }
 
     const messages = [
-        { role: 'system', content: template },
+        // 模板要經過巨集替換：{{user}} 是 persona 名稱、{{persona}} 是 persona 描述。
+        // 面板的 context 只有角色卡與最近訊息，拿不到使用者人設，這是唯一來源。
+        { role: 'system', content: substituteParams(template) },
         { role: 'user', content: buildContextBlock(context) },
     ];
 
@@ -318,14 +320,19 @@ function extractImageUrl(pipe) {
     return trimmed;
 }
 
-// Run the ST built-in SD generation in quiet mode with a random seed.
+// Run the ST built-in SD generation in quiet mode.
 // Named arguments must precede the positional prompt in STscript.
-async function generateImage(prompt) {
+// Seed: 預設沿用 ST 的 Seed 設定（>= 0 時鎖定），讓同一個角色在不同場景間保有一致的臉。
+// `randomSeed` 供「重新生成」使用，維持換一張的行為。
+async function generateImage(prompt, { randomSeed = false } = {}) {
     // Strip characters that would break STscript parsing; collapse whitespace.
     const safePrompt = String(prompt).replace(/[|"{}]/g, ' ').replace(/\s+/g, ' ').trim();
+    const sdSeed = Number(extension_settings.sd?.seed);
+    const lockedSeed = !randomSeed && Number.isFinite(sdSeed) && sdSeed >= 0;
+    const seedArg = lockedSeed ? `seed=${Math.trunc(sdSeed)}` : 'seed=-1';
     // extend=false: 使用者 ST 的 sd.free_extend=true 會讓 SD 用主連線 LLM 擴寫
     // prompt（FREE_EXTENDED mode），雙重 LLM 且繞過我們的轉換——每次呼叫鎖死。
-    const command = `/imagine quiet=true seed=-1 extend=false ${safePrompt}`;
+    const command = `/imagine quiet=true ${seedArg} extend=false ${safePrompt}`;
 
     setStatus('② ComfyUI 生成中…');
 
@@ -717,7 +724,7 @@ async function refreshImage() {
     setBusy(true);
 
     try {
-        const url = await generateImage(prompt);
+        const url = await generateImage(prompt, { randomSeed: true });
 
         if (entry) {
             // Update the viewed entry in place (new url + timestamp).
